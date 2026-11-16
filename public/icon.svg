@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="112" fill="#0F172A"/>
+  <!-- Outer Hopper Tank Structure -->
+  <path d="M128 96H384V272L296 392H216L128 272V96Z" fill="#1E293B" stroke="#94A3B8" stroke-width="18" stroke-linejoin="round"/>
+  <!-- Rice / Grain Fill inside Hopper -->
+  <path d="M142 184H370V268L290 378H222L142 268V184Z" fill="#D97706"/>
+  <!-- Grain Wave Highlight -->
+  <path d="M142 184C196 170 232 198 256 184C280 170 316 198 370 184" stroke="#FBBF24" stroke-width="12" stroke-linecap="round"/>
+  <!-- Outlet Gate & Conveyor Line -->
+  <rect x="208" y="392" width="96" height="24" rx="6" fill="#CBD5E1"/>
+  <path d="M96 436H416" stroke="#F59E0B" stroke-width="16" stroke-linecap="round" stroke-dasharray="28 20"/>
+  <!-- Measurement Level Marks -->
+  <line x1="164" y1="136" x2="196" y2="136" stroke="#E2E8F0" stroke-width="10" stroke-linecap="round"/>
+  <line x1="164" y1="224" x2="212" y2="224" stroke="#FEF3C7" stroke-width="10" stroke-linecap="round"/>
+  <line x1="164" y1="268" x2="196" y2="268" stroke="#FEF3C7" stroke-width="10" stroke-linecap="round"/>
+</svg>

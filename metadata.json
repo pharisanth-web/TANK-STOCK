@@ -1,0 +1,6 @@
+{
+  "name": "Tank Stock — K R Agro Food Industries",
+  "description": "Mobile-first and desktop 3D hopper-bottom tank stock management, 1 cm layer volumetric calibration, offline entry sync, and reporting system for K R Agro Food Industries.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
