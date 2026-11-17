@@ -1,187 +1,102 @@
-import React, { useState } from 'react';
-import { TankStockSummary } from '../lib/tankMath.ts';
+import React, { useState, useEffect } from 'react';
 import {
-  Radio,
   Server,
-  CheckCircle2,
-  Send,
-  ExternalLink,
+  Download,
+  Copy,
+  FileText,
+  Check,
 } from 'lucide-react';
 
-interface DeployAndSensorViewProps {
-  summaries: TankStockSummary[];
-  onRefreshState: () => Promise<void>;
-}
+export const DeployAndSensorView: React.FC = () => {
+  const [masterPromptText, setMasterPromptText] = useState<string>('');
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
 
-export const DeployAndSensorView: React.FC<DeployAndSensorViewProps> = ({
-  summaries,
-  onRefreshState,
-}) => {
-  const [sensorTankName, setSensorTankName] = useState<string>(
-    summaries[0]?.tank.name || 'A'
-  );
-  const [sensorGapCenter, setSensorGapCenter] = useState<string>('110');
-  const [sensorGapWall, setSensorGapWall] = useState<string>('118');
-  const [sensorDensity, setSensorDensity] = useState<string>('0.78');
-  const [sensorSending, setSensorSending] = useState(false);
-  const [sensorResult, setSensorResult] = useState<string | null>(null);
+  useEffect(() => {
+    fetch('/TANK_STOCK_MASTER_PROMPT.md')
+      .then((r) => r.text())
+      .then((txt) => setMasterPromptText(txt))
+      .catch(() => {});
+  }, []);
 
-  const handleSimulateSensorWebhook = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSensorSending(true);
-    setSensorResult(null);
-    try {
-      const res = await fetch('/api/sensor-reading', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tankName: sensorTankName,
-          gapCenterCm: Number(sensorGapCenter),
-          gapWallCm: Number(sensorGapWall),
-          kgPerLitre: Number(sensorDensity),
-          note: 'Simulated ultrasonic roof sensor reading via API',
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Sensor API error');
-      }
-      setSensorResult(
-        `Sensor reading recorded for Tank ${data.tank}: ${data.calculation.litres.toLocaleString()} L (${data.calculation.kg.toLocaleString()} kg, Diff: ${
-          data.calculation.discrepancyKg > 0 ? '+' : ''
-        }${data.calculation.discrepancyKg} kg)`
-      );
-      await onRefreshState();
-    } catch (err: unknown) {
-      setSensorResult(
-        err instanceof Error ? err.message : 'Failed to call sensor API'
-      );
-    } finally {
-      setSensorSending(false);
-    }
+  const handleCopyPrompt = async () => {
+    if (!masterPromptText) return;
+    await navigator.clipboard.writeText(masterPromptText);
+    setCopiedPrompt(true);
+    setTimeout(() => setCopiedPrompt(false), 2500);
+  };
+
+  const handleDownloadPromptFile = (ext: 'md' | 'txt') => {
+    const content = masterPromptText || 'Master Prompt loading...';
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `TANK_STOCK_MASTER_PROMPT.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
     <div className="space-y-6">
-      {/* 1. Automatic Level Sensor API Integration & Live Simulator */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 space-y-5">
-        <div className="flex items-start justify-between gap-4">
+      {/* 1. Complete Master Prompt & Blueprint File Download */}
+      <div className="bg-white rounded-2xl border border-amber-300 shadow-sm p-5 sm:p-6 space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <Radio className="w-5 h-5 text-sky-600" />
+              <FileText className="w-5 h-5 text-amber-600" />
               <h2 className="text-lg font-bold text-slate-900">
-                Automatic Tank Level Sensor API (Ready for IoT Sensors)
+                Complete App Master Prompt &amp; Specification File
               </h2>
             </div>
             <p className="text-xs text-slate-600 mt-1 max-w-2xl">
-              When you install ultrasonic or laser distance sensors on top of the tanks later, point them to <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded">POST /api/sensor-reading</code>. The server uses the exact same 1 cm layer calculation and updates all phones live.
+              Download or copy the complete end-to-end prompt file (<code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded">TANK_STOCK_MASTER_PROMPT.md</code>) containing every requirement, 1 cm layer formula, 3D tank specification, database schema, and PWA setup needed to recreate this full app.
             </p>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          {/* Live Sensor Webhook Simulator */}
-          <form
-            onSubmit={handleSimulateSensorWebhook}
-            className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-3.5"
-          >
-            <h3 className="text-xs font-bold text-slate-900">
-              Test Live Sensor Reading Now
-            </h3>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Tank Name
-                </label>
-                <select
-                  value={sensorTankName}
-                  onChange={(e) => setSensorTankName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-900"
-                >
-                  {summaries.map((s) => (
-                    <option key={s.tank.id} value={s.tank.name}>
-                      Tank {s.tank.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Centre Gap (cm)
-                </label>
-                <input
-                  type="number"
-                  value={sensorGapCenter}
-                  onChange={(e) => setSensorGapCenter(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Wall Gap (cm)
-                </label>
-                <input
-                  type="number"
-                  value={sensorGapWall}
-                  onChange={(e) => setSensorGapWall(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Density (kg/L)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={sensorDensity}
-                  onChange={(e) => setSensorDensity(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900"
-                />
-              </div>
-            </div>
-
-            {sensorResult && (
-              <div className="flex items-center gap-2 rounded-lg bg-sky-50 border border-sky-200 px-3 py-2 text-xs font-medium text-sky-900">
-                <CheckCircle2 className="w-4 h-4 text-sky-600 shrink-0" />
-                <span>{sensorResult}</span>
-              </div>
-            )}
-
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              type="submit"
-              disabled={sensorSending}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-4 py-2 text-xs font-bold text-white hover:bg-sky-500 transition-colors cursor-pointer"
+              type="button"
+              onClick={() => handleDownloadPromptFile('txt')}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 transition-colors cursor-pointer"
             >
-              <Send className="w-3.5 h-3.5" />
-              <span>
-                {sensorSending
-                  ? 'Sending Sensor Reading...'
-                  : 'Send Test Sensor Reading to API'}
-              </span>
+              <Download className="w-4 h-4" />
+              <span>Download Prompt (.txt)</span>
             </button>
-          </form>
-
-          {/* Example JSON Payload for Sensor Technician */}
-          <div className="rounded-xl bg-slate-900 text-slate-200 p-4 font-mono text-xs space-y-2 overflow-x-auto">
-            <div className="text-slate-400 font-sans text-[11px] font-semibold">
-              Example HTTP Request for Hardware Technician (ESP32 / PLC / Gateway):
-            </div>
-            <pre className="text-[11px] leading-relaxed text-amber-300">
-{`POST /api/sensor-reading
-Content-Type: application/json
-
-{
-  "tankName": "A",
-  "gapCenterCm": 110,
-  "gapWallCm": 118,
-  "kgPerLitre": 0.78,
-  "note": "Ultrasonic Sensor #1"
-}`}
-            </pre>
+            <button
+              type="button"
+              onClick={() => handleDownloadPromptFile('md')}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download Prompt (.md)</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleCopyPrompt}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              {copiedPrompt ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-600" />
+                  <span className="text-emerald-700">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4" />
+                  <span>Copy Full Prompt</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
+
+        {masterPromptText && (
+          <pre className="max-h-64 overflow-y-auto rounded-xl bg-slate-900 text-slate-200 p-4 text-[11px] font-mono leading-relaxed whitespace-pre-wrap border border-slate-800">
+            {masterPromptText}
+          </pre>
+        )}
       </div>
 
       {/* 2. Step-by-Step Deployment Guide for Non-Programmers (GitHub + Render + Neon Postgres) */}
@@ -270,7 +185,7 @@ Content-Type: application/json
 
           <div className="rounded-xl border border-slate-200 p-4 space-y-2">
             <div className="text-xs font-bold text-amber-700">
-              04. Add Environment Variables on Render & Install on Phones
+              04. Add Environment Variables on Render &amp; Install on Phones
             </div>
             <ol className="list-decimal list-inside space-y-1.5 text-xs text-slate-600 leading-relaxed">
               <li>

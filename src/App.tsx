@@ -818,7 +818,7 @@ export default function App() {
                 : ''
             }`}
           >
-            Sensor & Deploy
+            Deploy Guide
           </a>
         </nav>
 
@@ -1906,14 +1906,9 @@ export default function App() {
         )}
 
         {/* =================================================================== */}
-        {/* SCREEN 6: SENSOR API & NON-PROGRAMMER DEPLOY GUIDE                  */}
+        {/* SCREEN 6: NON-PROGRAMMER DEPLOY GUIDE & MASTER PROMPT               */}
         {/* =================================================================== */}
-        {activeTab === 'sensor-deploy' && (
-          <DeployAndSensorView
-            summaries={tankSummaries}
-            onRefreshState={() => fetchServerState(authToken)}
-          />
-        )}
+        {activeTab === 'sensor-deploy' && <DeployAndSensorView />}
       </main>
 
       {/* MOBILE BOTTOM NAVIGATION BAR (Thumb-Zone Ergonomics) */}
@@ -1966,7 +1961,7 @@ export default function App() {
         >
           <Sliders className="w-5 h-5" />
           <span className="text-[10px] mt-1">
-            {currentUser.role === 'manager' ? 'Draw Tank' : 'Sensors'}
+            {currentUser.role === 'manager' ? 'Draw Tank' : 'Guide'}
           </span>
         </button>
 

@@ -154,8 +154,16 @@ async function startServer() {
   const app = express();
   const server = http.createServer(app);
 
-  // WebSocket Server on the same port 3000 for live multi-phone synchronization
-  const wss = new WebSocketServer({ server, path: '/ws' });
+  // WebSocket Server using noServer: true so it never aborts Vite HMR or other upgrade requests
+  const wss = new WebSocketServer({ noServer: true });
+
+  server.on('upgrade', (req, socket, head) => {
+    if (req.url && req.url.startsWith('/ws')) {
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit('connection', ws, req);
+      });
+    }
+  });
 
   function broadcastEvent(event: string, payload: unknown) {
     const message = JSON.stringify({
@@ -802,109 +810,14 @@ async function startServer() {
   });
 
   // ---------------------------------------------------------------------------
-  // 4. AUTOMATIC LEVEL SENSOR WEBHOOK API (/api/sensor-reading)
-  // ---------------------------------------------------------------------------
-  app.post('/api/sensor-reading', async (req, res) => {
-    try {
-      const {
-        tankName,
-        tankId,
-        gapCenterCm,
-        gapWallCm,
-        gapCm,
-        kgPerLitre,
-        note,
-      } = req.body || {};
-
-      const state = await loadStateWithFallback();
-      const tank = state.tanks.find(
-        (t) =>
-          (tankId && t.id === Number(tankId)) ||
-          (tankName && t.name.toUpperCase() === String(tankName).trim().toUpperCase())
-      );
-
-      if (!tank) {
-        return res.status(404).json({
-          error: 'Tank not found. Provide valid tankName (e.g. "A", "A1") or tankId.',
-        });
-      }
-
-      const mat =
-        state.materials.find((m) => m.id === tank.materialId) || null;
-      const tankEntries = state.entries.filter((e) => e.tankId === tank.id);
-      const currentSummary = computeTankStockSummary(tank, mat, tankEntries);
-
-      const centerVal =
-        gapCenterCm !== undefined ? Number(gapCenterCm) : Number(gapCm || 120);
-      const wallVal =
-        gapWallCm !== undefined ? Number(gapWallCm) : centerVal;
-      const density =
-        Number(kgPerLitre) > 0
-          ? Number(kgPerLitre)
-          : currentSummary.activeKgPerLitre || 0.78;
-
-      const calc = calculateLevelReadingFromGap(
-        currentSummary.profile,
-        centerVal,
-        wallVal,
-        density
-      );
-
-      const prevBookKg = currentSummary.stockNowKg;
-      const discrepancy = Number((calc.kg - prevBookKg).toFixed(1));
-
-      const entryPayload: Omit<TankEntryRecord, 'id'> = {
-        clientEntryId: `sensor-${tank.name}-${Date.now()}`,
-        tankId: tank.id,
-        materialId: tank.materialId,
-        type: 'reading',
-        entryTimestamp: new Date().toISOString(),
-        userUid: 'sensor-gateway',
-        userName: `IoT Level Sensor (${tank.name})`,
-        note: String(note || 'Automated ultrasonic tank top-gap reading'),
-        source: 'sensor',
-        kg: calc.kg,
-        kgPerLitre: density,
-        supplierBillLot: '',
-        productBatch: '',
-        gapCenterCm: centerVal,
-        gapWallCm: wallVal,
-        gapAvgCm: calc.gapAvgCm,
-        filledHeightCm: calc.filledHeightCm,
-        calculatedLitres: calc.litres,
-        previousBookKg: prevBookKg,
-        discrepancyKg: discrepancy,
-      };
-
-      const created = await createEntryInDb(entryPayload);
-      broadcastEvent('entry:created', created);
-
-      return res.json({
-        status: 'ok',
-        tank: tank.name,
-        calculation: {
-          gapAvgCm: calc.gapAvgCm,
-          filledHeightCm: calc.filledHeightCm,
-          litres: calc.litres,
-          kg: calc.kg,
-          fillPercent: calc.fillPercent,
-          previousBookKg: prevBookKg,
-          discrepancyKg: discrepancy,
-        },
-        entry: created,
-      });
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Sensor reading failed';
-      return res.status(500).json({ error: msg });
-    }
-  });
-
-  // ---------------------------------------------------------------------------
-  // 5. VITE MIDDLEWARE OR PRODUCTION STATIC ASSETS
+  // 4. VITE MIDDLEWARE OR PRODUCTION STATIC ASSETS
   // ---------------------------------------------------------------------------
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true, hmr: false },
+      server: {
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR === 'true' ? false : { server },
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);

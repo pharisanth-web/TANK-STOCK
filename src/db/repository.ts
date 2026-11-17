@@ -24,6 +24,64 @@ let isSeedingComplete = false;
 export async function ensureSeededInDb(): Promise<void> {
   if (isSeedingComplete) return;
   try {
+    // Automatically create tables if booting on a fresh Neon Postgres database on Render
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        uid TEXT NOT NULL UNIQUE,
+        email TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'staff',
+        password_hash TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS materials (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        code TEXT NOT NULL,
+        lot_number TEXT NOT NULL,
+        kg_per_litre DOUBLE PRECISION NOT NULL DEFAULT 0.78,
+        color_hex TEXT NOT NULL DEFAULT '#d97706',
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS tanks (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        material_id INTEGER REFERENCES materials(id) ON DELETE SET NULL,
+        points_json TEXT NOT NULL,
+        straight_depth_cm DOUBLE PRECISION NOT NULL DEFAULT 240,
+        outlet_depth_cm DOUBLE PRECISION NOT NULL DEFAULT 40,
+        correction_factor DOUBLE PRECISION NOT NULL DEFAULT 1,
+        low_warning_pct DOUBLE PRECISION NOT NULL DEFAULT 15,
+        high_warning_pct DOUBLE PRECISION NOT NULL DEFAULT 90,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS entries (
+        id SERIAL PRIMARY KEY,
+        client_entry_id TEXT NOT NULL UNIQUE,
+        tank_id INTEGER NOT NULL REFERENCES tanks(id) ON DELETE CASCADE,
+        material_id INTEGER REFERENCES materials(id) ON DELETE SET NULL,
+        type TEXT NOT NULL,
+        entry_timestamp TEXT NOT NULL,
+        user_uid TEXT NOT NULL,
+        user_name TEXT NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        source TEXT NOT NULL DEFAULT 'manual',
+        kg DOUBLE PRECISION NOT NULL DEFAULT 0,
+        kg_per_litre DOUBLE PRECISION NOT NULL DEFAULT 0.78,
+        supplier_bill_lot TEXT NOT NULL DEFAULT '',
+        product_batch TEXT NOT NULL DEFAULT '',
+        gap_center_cm DOUBLE PRECISION NOT NULL DEFAULT 0,
+        gap_wall_cm DOUBLE PRECISION NOT NULL DEFAULT 0,
+        gap_avg_cm DOUBLE PRECISION NOT NULL DEFAULT 0,
+        filled_height_cm DOUBLE PRECISION NOT NULL DEFAULT 0,
+        calculated_litres DOUBLE PRECISION NOT NULL DEFAULT 0,
+        previous_book_kg DOUBLE PRECISION NOT NULL DEFAULT 0,
+        discrepancy_kg DOUBLE PRECISION NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+    `);
+
     const existingTanks = await db.select().from(tanks).limit(1);
     if (existingTanks.length > 0) {
       isSeedingComplete = true;
